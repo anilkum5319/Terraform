@@ -1,0 +1,998 @@
+Terraform ( Infrastructure As A Code IaaC) ::
+
+Why we use Terraform and not Chef, Puppet, Ansible, SaltStack, or CloudFormation
+
+If you search the Internet for “infrastructure-as-code”, it’s pretty easy to come up with 
+a list of the most popular tools:
+
+Chef
+Puppet
+Ansible
+SaltStack
+
+CloudFormation
+Terraform
+
+
+All the above tools helps us to manage our infrastructure in the form of code. 
+But question is simple why 
+
+Should we choose "terraform" than all these. If you observe all the above tools are opensource and they have their own communities and the contribution & one more thing is they all are enterprize tools.
+
+Even we have "cloud formation" for automating the things with AWS than terraform. but question remains same why terraform ??
+
+
+## Configuration Management vs Orchestration ::
+
+The above mentioned tools except "CloudFormation & Terraform" all other tools are  basically configuration management tools.
+
+Which means that they are used to manage and install the s/w or helps to maintain a state of the particular macine. 
+
+But "Terraform" & "CloudFormation" are the Orchestration tools which means that they are desinged to provison the machines & their infrastructure. Once the machine is builded you can use the configuration management tools for performing your task.
+
+
+## Mutable Infrastructure vs Immutable Infrastructure ::
+
+Mutable --> Configuration management tools using configuration management tools, we can deploy the new software versions based up on the environement we are choosing. But if you observe each server will be having a seperate version based up on the environement.
+
+
+Immutable --> Orchestration tools
+But if you are choosing the Orchestration tools you can simply maintain all the servers with a single version of OS. Its simple create a simple OS image and start deploy the servers as per the requirement and all your old machines will be replaced with the newly builded machines and all the machines will have same version of the package installed !!
+
+
+Procedural vs Declarative ::
+
+Procedural approach means if you want to achieve some thing you need to mention the things in an programatic approach. "Chef & Ansible" works on the same.
+
+But in Declarative approach you no need to worry about flow it will automatically gets the respective informaiton based up the resource what we are choosing. 
+
+For example if you want to create 10 servers with app version v1 then the code for different tools will be like below.
+
+using Ansible : (Procedural approach)
+
+- ec2:
+	count: 10
+	ami: app-v1
+	instance_type: t2.micro
+	
+
+Using terraform : (Declarative)
+
+resource "aws_instance" "example" {
+  count = 10
+  ami = "ami-v1"
+  instance_type = "t2.micro"
+}
+
+
+Till now its fine no much changes in both the configuration. But question is what will happen if the load is high and if you want to add 5 more servers. 
+
+Using Ansible you need to specify the code like below.
+
+- ec2:
+	count: 15
+	ami: app-v1
+	instance_type: t2.micro
+	
+Soon after executing this code, you will get a 15 more servers along with 10 machines so total will be 25 servers. But your desire state is to have only 5 machines with out changing the code. Which means that you need to again re-write the entire code and find the previous machines and has to do all the other stuff.
+
+Using Terraform you need to specify the code like below.
+
+resource "aws_instance" "exampe" {
+	count = 15
+	ami = "ami-v1"
+	instance_type = "t2.micro"
+	}
+	
+Now, what Terraform will do it, it won't create 15 more servers, it will simply create 5 servers. Because it is well aware of the current state what ever it is having. 
+Hence you no need to break you head to write new code.
+
+
+Disadvantages:
+
+Of course, there are downsides to declarative languages too. Without access to a full programming language, your expressive power is limited. For example, some types of infrastructure changes, such as a rolling, zero-downtime deployment, are hard to express in purely declarative terms. Similarly, without the ability to do “logic” (e.g. if-statements, loops), creating generic, reusable code can be tricky (especially in CloudFormation). 
+
+### Client/Server Architecture vs Client-Only Architecture ::
+
+Chef,puppet & salt stack are purely based on "Client/Server". Which indeed there are many hiccups when you are dealing with these tools, like 
+
+	1. you need to install the client in all the machines in order to get the desired state as per the requirement
+
+	2. you should require a manageble server which should give the instructions to the client machines.
+ 
+3. you will get all the issues with the network,client,management and etc.
+
+Ansible,CloudFormation & Terraform are purely client-only Architecture, which in deed you no need to install any agents as part of your machines in order to do the management. 
+
+CloudFormation is also client/server, but AWS handles all the server details so transparently, that as an end user, you only have to think about the client code.
+
+The Ansible client works by connecting directly to your servers over SSH
+
+Terraform uses cloud provider APIs to provision infrastructure, so there are no new 
+ 
+authentication mechanisms beyond what you’re using with the cloud provider already, and there is no need for direct access to your servers
+
+
+Final Conclusion:
+
+Of course, Terraform isn’t perfect. It’s younger and less mature than all the other tools on the list: whereas Puppet came out in 2005, Chef in 2009, SaltStack and CloudFormation in 2011, and Ansible in 2012,Terraform came out just 4 years ago, in 2014. 
+Bugs are relatively common (e.g. There are over 800 open issues with the label “bug”), although the vast majority are harmless eventual consistency issues that go away when you 
+rerun Terraform
+
+
+Infrastructure As A Code with AWS Using Terraform ::
+
+Installation and Configuration:
+
+sudo curl -O https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_linux_amd64.zip
+
+sudo curl -O https://releases.hashicorp.com/terraform/0.12.25/terraform_0.12.25_linux_amd64.zip
+
+
+sudo yum install -y unzip
+sudo unzip terraform_0.11.13_linux_amd64.zip -d /usr/local/bin/
+
+{ We have leatest version released, which is sudo unzip terraform_0.12.24_linux_amd64.zip -d /usr/local/bin/ }
+
+Creating connection between CLI & AWS API ::
+
+[root@terraform basics]# aws configure
+AWS Access Key ID [None]: AKIAVEWARMEZ4JG77O25
+AWS Secret Access Key [None]: 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
+Default region name [None]: us-east-1
+Default output format [None]: json
+
+export AWS_DEFAULT_REGION="us-east-1"
+
+Lets play around our terraform commands ::
+
+
+Topic 1 ::
+
+Terraform Commands:
+
+[root@terraform ~]# mkdir ~/terraform/basics -p
+[root@terraform ~]# ls -l
+total 20636
+drwxr-xr-x 3 root root       20 Feb 17 08:23 terraform
+-rw-r--r-- 1 root root 21128942 Feb 17 08:19 terraform_0.11.13_linux_amd64.zip
+[root@terraform ~]# cd terraform/basics/
+[root@terraform basics]# ls -l
+total 0
+
+
+[root@terraform basics]# cat main.tf
+resource "aws_key_pair" "deployer" {
+  key_name   = "devops-test-key"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+}
+
+terraform plan -out=tfplan
+
+[root@terraform basics]# terraform apply tfplan
+aws_key_pair.deployer: Creating...
+  fingerprint: "" => "<computed>"
+  key_name:    "" => "devops-test-key"
+  key_pair_id: "" => "<computed>"
+  public_key:  "" => "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+aws_key_pair.deployer: Creation complete after 0s (ID: devops-test-key)
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+[root@terraform basics]#
+
+
+[root@terraform basics]# ls -al .terraform/plugins/
+total 0
+drwxr-xr-x 3 root root 25 Feb 17 08:25 .
+drwxr-xr-x 3 root root 21 Feb 17 08:25 ..
+drwxr-xr-x 2 root root 64 Feb 17 08:25 linux_amd64
+[root@terraform basics]#
+
+
+[root@terraform basics]# terraform providers
+.
+└── provider.aws
+
+[root@terraform basics]#
+
+[root@terraform basics]# terraform show
+aws_key_pair.deployer:
+  id = devops-test-key
+  fingerprint = d7:ff:a6:63:18:64:9c:57:a1:ee:ca:a4:ad:c2:81:62
+  key_name = devops-test-key
+  key_pair_id = key-0d4c6fef9c0d9284c
+  public_key = ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com
+  tags.% = 0
+
+[root@terraform basics]# terraform destroy
+aws_key_pair.deployer: Refreshing state... (ID: devops-test-key)
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+
+[root@terraform basics]# terraform destroy -auto-approve
+aws_key_pair.deployer: Refreshing state... (ID: devops-test-key)
+aws_key_pair.deployer: Destroying... (ID: devops-test-key)
+aws_key_pair.deployer: Destruction complete after 0s
+
+Destroy complete! Resources: 1 destroyed.
+[root@terraform basics]
+
+useful Commands::
+
+apply:   	Builds or changes infrastructure
+console: 	Interactive console for Terraform interpolations
+destroy: 	Destroys Terraform-managed infrastructure
+fmt:     	Rewrites configuration files to canonical format
+get:     	Downloads and installs modules for the configuration
+graph:   	Creates a visual graph of Terraform resources
+import:  	Imports existing infrastructure into Terraform
+init:    	Initializes a new or existing Terraform configuration
+output:  	Reads an output from a state file
+plan:    	Generates and shows an execution plan
+providers: 	Prints a tree of the providers used in the configuration
+push:    	Uploads this Terraform module to Terraform Enterprise to run
+refresh: 	Updates local state file against real resources
+show:    	Inspects Terraform state or plan
+taint:   	Manually marks a resource for recreation
+untaint: 	Manually unmarks a resource as tainted
+validate:	Validates the Terraform files
+version: 	Prints the Terraform version
+workspace: 	Workspace management
+
+
+HashiCorp Configuration Language ::
+
+Refernces :
+https://www.terraform.io/docs/providers/docker/r/container.html
+https://www.terraform.io/docs/configuration-0-11/syntax.html
+https://www.terraform.io/docs/configuration-0-11/interpolation.html
+
+If you want to access the variables value then you can use the below syntax
+
+"${variable.attribute}"
+
+Topic 2 ::
+Variables ::
+
+Lets play around the variables ::
+Tell them about server creation as example & start playing around it.
+
+case 1 :
+default value 
+
+case 2:
+user interactive
+
+case 3:
+passing using -var section
+
+case 4:
+defining outputs as part of the main.tf file
+
+
+Topic 3 ::
+Restructure our Terraform code ::
+
+Till now we are using single main.tf file for  all our requirements. now lets break down the file in to
+different parts like below.
+
+main.tf, variables.tf & outputs.tf 
+
+Topic 4 ::
+Maps and Lookups ::
+
+They help us to define the key value pairs as of our configuration files, for suppose i am gonna provide different values for the same variable using maps like below.
+Our main intention is to provide different values to the variables based up on the environmnet what I select. Hence I am re-modifying our infrastructure as below.
+
+Note: we are trying to bring two servers in dev & prod with different server names & different keys.
+
+Topic 5 ::
+Terraform Workspaces::
+
+Workspace gives us a great feasibility of creating our own infrastructure based up on different environments like dev/sit/uat/prod etc .. In simple we will have individual tfstate file particular to the environment. Let's see how are we gonna do it .
+
+Now lets try to understand why we have to opt for Workspaces, if we don't use them what will happen.
+
+Lets execute our code as it is as above with different environments.
+
+Initially we dont have anything.
+
+workspace commands ::
+
+terraform workspace list
+terraform workspace new prod
+terraform workspace select prod
+terraform plan -out prodplan -var env=prod
+terraform apply prodplan
+
+Note: Tell them clearly how to switch the accounts in the workspace. Before going futher destroy all the environments
+
+Null Resources and Local-exec ::
+
+syntax:
+resource "null_resource" "null_id" {
+  provisioner "local-exec" {
+    command = "echo ${aws_instance.myserver.tags.Name},${aws_instance.myserver.public_ip} >> container.txt"
+  }
+}
+
+
+Modules ::
+Refer to file "Raw_S3_Vpc_Ec2" and module_code.tar file for the code.
+
+Practise Example :
+Autoscalling configuration ::
+Creating AWS Autoscalling so that, even thought the server is crashes we will have other instances will be up and running fine. 
+
+1. Gathering all the availability zones
+
+2. Configuring security group
+
+3. Creating the launch configuration
+
+4. Creating Autoscalling Group
+
+5. Creating ELB
+
+6. Printing the load balencer dns name
+
+Final Code:
+
+[root@terraform asg]# cat main.tf
+provider "aws" {
+        region = "eu-west-2"
+        profile = "default"
+        }
+
+
+# Gathering availability zones
+
+data "aws_availability_zones" "all" {}
+
+# Creating security Group
+
+resource "aws_security_group" "my_security_group" {
+        name = "my_security_group"
+        ingress {
+            from_port   = 0
+            to_port     = 0
+            protocol    = "-1"
+            cidr_blocks = ["0.0.0.0/0"]
+          }
+
+          egress {
+            from_port       = 0
+            to_port         = 0
+            protocol        = "-1"
+            cidr_blocks     = ["0.0.0.0/0"]
+        }
+        tags {
+                Name = "Allow All"
+        }
+
+}
+
+
+#Creating the launch configuration
+
+resource "aws_launch_configuration" "my-launch-configuration" {
+        name = "my-launch-configuration"
+        image_id = "ami-403e2524"
+        instance_type = "t2.micro"
+        security_groups = ["${aws_security_group.my_security_group.id}"]
+        user_data = <<-EOF
+              #!/bin/bash
+              yum install httpd -y
+              chkconfig httpd on
+              echo "Hello, World" >> /var/www/html/index.html
+              service httpd restart
+              EOF
+}
+# Creating Autoscaling Group
+
+resource "aws_autoscaling_group" "my_autoscaling_group" {
+        availability_zones = ["${data.aws_availability_zones.all.names}"]
+        launch_configuration = "${aws_launch_configuration.my-launch-configuration.id}"
+        min_size = 2
+        max_size = 4
+        health_check_type = "ELB"
+        load_balancers = ["${aws_elb.my-elb.id}"]
+        tag {
+                key = "Name"
+                value = "terraform-example-asg"
+                propagate_at_launch = true
+         }
+
+
+}
+
+# Creating Loadbalencer
+
+resource "aws_elb" "my-elb" {
+        name = "my-elb"
+        availability_zones = ["${data.aws_availability_zones.all.names}"]
+        listener {
+            instance_port     = 80
+            instance_protocol = "http"
+            lb_port           = 80
+            lb_protocol       = "http"
+          }
+        health_check {
+            healthy_threshold   = 2
+            unhealthy_threshold = 2
+            timeout             = 3
+            target              = "TCP:80"
+            interval            = 30
+          }
+
+}
+
+# Displaying the elb dns name
+
+output "dns_name" {
+        value = "${aws_elb.my-elb.dns_name}"
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################  Terraform Anil Practice   #############################################################################
+
+[root@terraform ~]# mkdir terraform
+[root@terraform ~]#
+[root@terraform ~]#
+[root@terraform ~]#
+[root@terraform ~]# cd terraform/
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# sudo curl -O https://releases.hashicorp.com/terraform/0.12.25/terraform_0.12.25_linux_amd64.zip
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 15.9M  100 15.9M    0     0  95.0M      0 --:--:-- --:--:-- --:--:-- 95.0M
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# ls -ltrh
+total 16M
+-rw-r--r-- 1 root root 16M May 21 14:43 terraform_0.12.25_linux_amd64.zip
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# unzip terraform_0.12.25_linux_amd64.zip -d /usr/local/bin/
+Archive:  terraform_0.12.25_linux_amd64.zip
+  inflating: /usr/local/bin/terraform
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# export AWS_DEFAULT_REGION="us-east-1"
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# terraform -v
+Terraform v0.12.25
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform ~]#
+[root@terraform ~]# aws configure                                        #    To configure AWS in command line
+AWS Access Key ID [None]: AKIASWTXWR2LXZLWI5DS                           #	  Get this key from User which you created, while creating the user, select AWS provider
+AWS Secret Access Key [None]: rXK3ingbwnpUpCopU96mjQM/OW2AYsA06efuQDX5   #	  Get this key from User which you created
+Default region name [None]: us-east-1                                    ##   Most Important is region that wil be untill the number (us-east-1 ) , it should not be a us-east-1a
+Default output format [None]: json                                       #    Output Format should be always JASON , no need to worry about JSON language
+[root@terraform ~]#
+[root@terraform ~]#     
+[root@terraform ~]#
+[root@terraform ~]#
+[root@terraform ~]# export AWS_DEFAULT_REGION="us-east-1"     			## This will help you to aviod multiple time giving region 
+[root@terraform ~]#
+
+[root@terraform ~]#
+[root@terraform ~]# mkdir ~/terraform/basics -p
+[root@terraform ~]#
+[root@terraform ~]#
+[root@terraform ~]# cd terraform/basics/
+[root@terraform basics]#
+[root@terraform basics]#
+[root@terraform basics]#
+[root@terraform basics]#
+[root@terraform basics]# cd ..
+[root@terraform terraform]#
+
+############# Key_Pair creaction ########
+
+[root@terraform terraform]# ls -ltrh
+total 8.0K
+-rw-r--r-- 1 root root  491 May 18 14:41 main.tf                      ##   main.tf is your main code where you will init, plan, apply, test , destory .... etc..! 
+-rw-r--r-- 1 root root 1.7K May 18 14:42 terraform.tfstate            ### This state file is very important that all your metadata/code wil store under this file, once you excute the apply, you should not be delete/remove this file, even accidentely , hence, we keep this file romotly ( such as your bigbucket, GITHub ....!)
+[root@terraform terraform]#
+
+[root@terraform terraform]# alias tf=terraform			# Done with alias from terraform to tf
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# tf init .    #### initiating the terraform 
+
+Initializing provider plugins...
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.aws: version = "~> 2.62"
+
+Terraform has been successfully initialized!   ==================== Successfull 
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+[root@terraform terraform]#
+
+--------------      ----------------------    -----------------------    ---------------------- 
+
+[root@terraform terraform]#
+[root@terraform terraform]# tf plan
+Refreshing Terraform state in-memory prior to plan...
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create   ==================================================  ## One created
+
+Terraform will perform the following actions:
+
+  + aws_key_pair.kay_pair
+      id:          <computed>
+      fingerprint: <computed>
+      key_name:    "terraform-keypair1"
+      key_pair_id: <computed>
+      public_key:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+
+
+Plan: 1 to add, 0 to change, 0 to destroy.   ===============  1 plan has excuted and added
+
+------------------------------------------------------------------------
+
+Note: You didn't specify an "-out" parameter to save this plan, so Terraform
+can't guarantee that exactly these actions will be performed if
+"terraform apply" is subsequently run.
+
+[root@terraform terraform]#
+
+
+-----------      -------------------      ---------------------       --------------------------        ---------------------
+
+
+[root@terraform terraform]# tf apply
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:   
+
+  + aws_key_pair.kay_pair
+      id:          <computed>
+      fingerprint: <computed>
+      key_name:    "terraform-keypair1"
+      key_pair_id: <computed>
+      public_key:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value:
+  
+ ########  When you give terraform apply it will ask the value to be enter every time, toavoid that we will use -auto-approve 
+ 
+ 
+[root@terraform terraform]# tf apply -auto-approve
+aws_key_pair.kay_pair: Creating...
+  fingerprint: "" => "<computed>"
+  key_name:    "" => "terraform-keypair1"
+  key_pair_id: "" => "<computed>"
+  public_key:  "" => "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+aws_key_pair.kay_pair: Creation complete after 0s (ID: terraform-keypair1)
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+[root@terraform terraform]#
+
+
+
+[root@terraform terraform]# cat main.tf
+resource "aws_key_pair" "key_pair" {
+  key_name   = "terraform-keypair1"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD3F6tyPEFEzV0LX3X8BsXdMsQz1x2cEikKDEY0aIj41qgxMCP/iteneqXSIFZBp5vizPvaoIR3Um9xK7PGoW8giupGn+EPuxIA4cDM4vzOqOkiMPhz5XK0whEjkVzTo4+S0puvDZuwIsdiW9mxhJc7tgBNL0cYlWSYVkz4G/fslNfRPW5mYAM49f4fhtxPb5ok4Q2Lg9dPKVHO/Bgeu5woMc7RY0p1ej6D4CKFE6lymSDJpW0YHX/wqE9+cfEauh7xZcG0q9t2ta6F6fmX0agvpFyZo8aFbXeUBr7osSCJNgvavWbM/06niWrOvYX2xwWdhXmXSrbX8ZbabVohBK41 email@example.com"
+}
+
+
+# Instance Creation
+
+resource "aws_instance" "myserver" {
+  ami           = "ami-0323c3dd2da7fb37d"
+  instance_type = "t2.micro"
+  key_name = "anil_ibm"
+  tags = {
+    Name = "anil-terraform"
+  }
+}
+[root@terraform terraform]#
+
+
+
+[root@terraform terraform]# tf destroy -auto-approve
+aws_key_pair.key_pair: Refreshing state... (ID: terraform-keypair1)
+aws_instance.myserver: Refreshing state... (ID: i-0fdcaaa57c265fa66)
+aws_instance.myserver: Destroying... (ID: i-0fdcaaa57c265fa66)
+aws_key_pair.key_pair: Destroying... (ID: terraform-keypair1)
+aws_key_pair.key_pair: Destruction complete after 0s
+aws_instance.myserver: Still destroying... (ID: i-0fdcaaa57c265fa66, 10s elapsed)
+aws_instance.myserver: Still destroying... (ID: i-0fdcaaa57c265fa66, 20s elapsed)
+aws_instance.myserver: Still destroying... (ID: i-0fdcaaa57c265fa66, 30s elapsed)
+aws_instance.myserver: Destruction complete after 39s
+
+Destroy complete! Resources: 2 destroyed.
+[root@terraform terraform]#
+
+
+
+[root@terraform terraform]# cat main.tf
+provider "aws" {
+
+         region = "us-east-1"     ================= ### This is default locastion, where u no need to give everytime region name while plan or apply 
+
+}
+
+
+# Instance Creation
+
+variable "server_name" {                   ========== ### We are difining server_name as variable , if we defaine default = " server-name" you no need to gv name manually
+
+}
+
+resource "aws_instance" "myserver" {
+  ami           = "ami-0323c3dd2da7fb37d"
+  instance_type = "t2.micro"
+  key_name = "anil_ibm"
+  tags = {
+    Name = "${var.server_name}"        ============================= ## calling the variable over the here, which we difne server_name variable 
+  }
+}
+[root@terraform terraform]#
+
+
+
+[root@terraform terraform]# terraform show
+aws_instance.myserver:
+  id = i-0cb5d44cb0cf74fbe
+  ami = ami-0323c3dd2da7fb37d
+  arn = arn:aws:ec2:us-east-1:186008374935:instance/i-0cb5d44cb0cf74fbe
+  associate_public_ip_address = true
+  availability_zone = us-east-1b
+  cpu_core_count = 1
+  cpu_threads_per_core = 1
+  credit_specification.# = 1
+  credit_specification.0.cpu_credits = standard
+  disable_api_termination = false
+  ebs_block_device.# = 0
+  ebs_optimized = false
+  ephemeral_block_device.# = 0
+  get_password_data = false
+  hibernation = false
+  iam_instance_profile =
+  instance_state = running
+  instance_type = t2.micro
+  ipv6_address_count = 0
+  ipv6_addresses.# = 0
+  key_name = anil_ibm
+  metadata_options.# = 1
+  metadata_options.0.http_endpoint = enabled
+  metadata_options.0.http_put_response_hop_limit = 1
+  metadata_options.0.http_tokens = optional
+  monitoring = false
+  network_interface.# = 0
+  outpost_arn =
+  password_data =
+  placement_group =
+  primary_network_interface_id = eni-0c6adf680f213c5dd
+  private_dns = ip-172-31-89-64.ec2.internal
+  private_ip = 172.31.89.64
+  public_dns = ec2-3-93-146-113.compute-1.amazonaws.com
+  public_ip = 3.93.146.113
+  root_block_device.# = 1
+  root_block_device.0.delete_on_termination = true
+  root_block_device.0.device_name = /dev/xvda
+  root_block_device.0.encrypted = false
+  root_block_device.0.iops = 100
+  root_block_device.0.kms_key_id =
+  root_block_device.0.volume_id = vol-0f0b7ce70bfb28850
+  root_block_device.0.volume_size = 8
+  root_block_device.0.volume_type = gp2
+  security_groups.# = 1
+  security_groups.3814588639 = default
+  source_dest_check = true
+  subnet_id = subnet-105ba431
+  tags.% = 1
+  tags.Name = anil-terraform
+  tenancy = default
+  volume_tags.% = 0
+  vpc_security_group_ids.# = 1
+  vpc_security_group_ids.2999948762 = sg-42fe8f63
+
+[root@terraform terraform]#
+
+
+Note: Here, to get an output of any value you should use the variable point. in this case aws_instance.myserver variable and value is tags.Name
+
+so , syntax :
+
+
+## Output Value
+
+output "My_Server_Name:" {
+        value = "${aws_instance.myserver.tags.Name}, ${aws_instance.myserver.private_ip}, ${aws_instance.myserver.public_ip}"
+
+
+
+
+Complete main.tf file : 
+
+
+[root@terraform terraform]# cat main.tf
+provider "aws" {
+
+         region = "us-east-1"
+
+}
+
+
+# Instance Creation
+
+variable "server_name" {
+
+}
+
+resource "aws_instance" "myserver" {
+  ami           = "ami-0323c3dd2da7fb37d"
+  instance_type = "t2.micro"
+  key_name = "anil_ibm"
+  tags = {
+    Name = "${var.server_name}"
+  }
+}
+
+## Output Value
+
+output "My_Server_Name:" {
+        value = "${aws_instance.myserver.tags.Name}, ${aws_instance.myserver.private_ip}, ${aws_instance.myserver.public_ip}"
+
+}
+
+[root@terraform terraform]#
+
+
+
+[root@terraform terraform]# terraform destroy -auto-approve          ============== ### Destroy means deleating the instance 
+var.server_name
+  Enter a value: tf-fuck         =========== ## Server Name you can give manually or with default option, u can difine server name
+
+aws_instance.myserver: Refreshing state... (ID: i-0cb5d44cb0cf74fbe)
+aws_instance.myserver: Destroying... (ID: i-0cb5d44cb0cf74fbe)
+aws_instance.myserver: Still destroying... (ID: i-0cb5d44cb0cf74fbe, 10s elapsed)
+aws_instance.myserver: Still destroying... (ID: i-0cb5d44cb0cf74fbe, 20s elapsed)
+aws_instance.myserver: Destruction complete after 30s
+
+Destroy complete! Resources: 1 destroyed.
+[root@terraform terraform]#
+
+
+terraform apply -var "server_name = terraform-server"   =============## This case, even if you difine default value , it will pick only this variable difine server name.
+
+
+
+######### ************ S3 Bucker Creation ************ ############
+
+
+
+[root@terraform terraform]# aws configure
+AWS Access Key ID [None]: AKIASWTXWR2LXZLWI5DS
+AWS Secret Access Key [None]: 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
+Default region name [None]: us-east-1
+Default output format [None]: json
+[root@terraform terraform]#
+[root@terraform terraform]# touch {main.tf,outputs.tf,variables.tf}    ==== # Create 4 - files with given name
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# ls -ltrh
+total 16M
+-rw-r--r-- 1 root root 16M May 21 14:43 terraform_0.12.25_linux_amd64.zip
+-rw-r--r-- 1 root root   0 May 21 14:47 variables.tf
+-rw-r--r-- 1 root root   0 May 21 14:47 outputs.tf
+-rw-r--r-- 1 root root   0 May 21 14:47 main.tf
+[root@terraform terraform]#
+[root@terraform terraform]#
+
+[root@terraform terraform]# cat main.tf          ## 
+/*  ::S3 Bucket Creation:: */
+
+/* :::- Variable S3 Bucket creation -::: */
+
+variable "mys3bucket_name" {
+          default = "anil-s3-buckt"                                 ------------------------------ Variable creation
+}
+
+resource "random_id" "myrandomid" {                                 ------------------------------ Random ID setting
+  byte_length = 2
+}
+
+resource "aws_s3_bucket" "mys3buckt" {
+  bucket = "${var.mys3bucket_name}-${random_id.myrandomid.dec}"     ------------------------------- S3 Bucket creation with decimal random number, bcoz, s3 name shud be uniq
+  force_destroy = true
+  tags = {
+    Name        = "${var.mys3bucket_name}-${random_id.myrandomid.dec}"
+  }
+}
+
+
+/* :: OutPut of S3 Bucket :: */
+
+output "bucket_name" {
+
+        value = "${aws_s3_bucket.mys3buckt.tags.Name}"            -------------------------------# This is for bucket name output
+}
+[root@terraform terraform]#
+[root@terraform terraform]# terraform init .
+
+Initializing the backend...
+
+Initializing provider plugins...
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.aws: version = "~> 2.62"
+* provider.random: version = "~> 2.2"
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# terraform plan
+Refreshing Terraform state in-memory prior to plan...
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+
+random_id.myrandomid: Refreshing state... [id=LPI]
+aws_s3_bucket.mys3buckt: Refreshing state... [id=anil-s3-buckt-11506]
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # aws_s3_bucket.mys3buckt will be created
+  + resource "aws_s3_bucket" "mys3buckt" {
+      + acceleration_status         = (known after apply)
+      + acl                         = "private"
+      + arn                         = (known after apply)
+      + bucket                      = "anil-s3-buckt-11506"
+      + bucket_domain_name          = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = {
+          + "Name" = "anil-s3-buckt-11506"
+        }
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + versioning {
+          + enabled    = (known after apply)
+          + mfa_delete = (known after apply)
+        }
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+------------------------------------------------------------------------
+
+Note: You didn't specify an "-out" parameter to save this plan, so Terraform
+can't guarantee that exactly these actions will be performed if
+"terraform apply" is subsequently run.
+
+[root@terraform terraform]#
+[root@terraform terraform]# terraform apply -auto-approve
+random_id.myrandomid: Refreshing state... [id=LPI]
+aws_s3_bucket.mys3buckt: Refreshing state... [id=anil-s3-buckt-11506]
+aws_s3_bucket.mys3buckt: Creating...
+aws_s3_bucket.mys3buckt: Creation complete after 2s [id=anil-s3-buckt-11506]
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = anil-s3-buckt-11506
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]#
+[root@terraform terraform]# terraform destroy -auto-approve
+random_id.myrandomid: Refreshing state... [id=LPI]
+aws_s3_bucket.mys3buckt: Refreshing state... [id=anil-s3-buckt-11506]
+aws_s3_bucket.mys3buckt: Destroying... [id=anil-s3-buckt-11506]
+aws_s3_bucket.mys3buckt: Destruction complete after 0s
+random_id.myrandomid: Destroying... [id=LPI]
+random_id.myrandomid: Destruction complete after 0s
+
+Destroy complete! Resources: 2 destroyed.
+[root@terraform terraform]#
+
+
+
+######## **************** VPC Creation ************** #############
+
+
+
+
+
+
+
+
+
+
+
