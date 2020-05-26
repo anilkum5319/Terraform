@@ -992,6 +992,19 @@ Destroy complete! Resources: 2 destroyed.
 
 
 
+>> If someone has changed my AMI type from t2.micro to t2.large and the person who is deplying terraform dont no that and he has apply terraform, but it has not changed how we can rectify this kind of issues come out from . 
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
